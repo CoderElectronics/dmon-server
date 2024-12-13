@@ -1,0 +1,16 @@
+# Created: 2021-07-07 15:00:00
+# Modified: 2021-07-07 15:00:00
+# Author: Ari Stehney
+# Description: Configuration file for the server
+# Version: 1.0.0
+# License: MIT
+
+server:
+  iv: test_iv_1234
+  port: 3000
+
+workers:
+  - id: server1
+    pk: test_pk_5678
+  - id: server2
+    pk: test_pk_9101

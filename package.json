@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "cryptojs": "^2.5.3",
+    "hono": "^4.6.13",
+    "proxy-deep": "^4.0.1",
+    "yaml": "^2.6.1"
+  },
+  "name": "dmon",
+  "module": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
