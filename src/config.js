@@ -1,7 +1,7 @@
 import YAML from 'yaml';
 import fs from 'fs';
 
-export default function config(path = "server_config.yaml") {
+export default function config(path) {
   var configObject = new Object();
 
   var write = () => {

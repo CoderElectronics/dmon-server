@@ -7,8 +7,8 @@ import * as ppath from "./propertypath.js"
 import config from "./config.js"
 
 /* initialize all */
-var cfg = config();
-var app = new Hono()
+var app = new Hono();
+var cfg = config("server_config.yaml");
 
 db.initialize(cfg.server.db ?? "dmon_state.db");
 
