@@ -2,9 +2,9 @@ import { randomUUIDv7 } from "bun";
 import { Database } from "bun:sqlite";
 export var db = null;
 
-export function initialize() {
+export function initialize(path) {
   try {
-    db = new Database("dmon_state.sqlite", { readwrite: true, create: true });
+    db = new Database(path, { readwrite: true, create: true });
   } catch (error) {
     console.log("DB error:", error);
     db = null;

@@ -7,10 +7,10 @@ import * as ppath from "./propertypath.js"
 import config from "./config.js"
 
 /* initialize all */
-db.initialize();
-
 var cfg = config();
 var app = new Hono()
+
+db.initialize(cfg.server.db ?? "dmon_state.db");
 
 /* routes */
 function route_msg(type, msg) {
