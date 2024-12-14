@@ -23,13 +23,17 @@ export function encode_query(keyString, ivString, plaintextString) {
   }
 }
 
-export function decode_query(keyString, ivString, encryptedHex) {
+export function decode_query(keyString, base64IV, encryptedHex) {
   try {
+    // Hash the key
     const keyHash = crypto.createHash('sha512').update(keyString).digest();
-    const ivHash = crypto.createHash('sha512').update(ivString).digest();
-
     const key = keyHash.subarray(0, 32);
-    const iv = ivHash.subarray(0, 16);
+    const iv = Buffer.from(base64IV, 'base64');
+
+    // Verify IV length
+    if (iv.length !== 16) {
+      throw new Error('Invalid IV length');
+    }
 
     const encryptedBytes = Buffer.from(encryptedHex, 'hex');
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);

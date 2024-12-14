@@ -104,26 +104,31 @@ app.post('/api/workers/:id/push', async (c) => {
   /*
     Push data to the server
     @param id: the id of the worker
-    @param data: the data to push
+    @param data: the data to push in format: {iv: string, payload: string}
+    where iv is base64 encoded and payload is the encrypted data
 
     @config workers.id: the id of the device
     @config workers.pk: the private key of the device
-    @config server.iv: the initialization vector for the server
   */
   const id = c.req.param('id');
-
   route_msg(id, `push request made`);
 
-  const data = await c.req.text();
-  var dev = cfg.workers.filter((dev) => dev.id == id);
-  if (dev.length == 0)
-    return c.json({ status: "no_device" }, 200, {});
-
   try {
+    const encryptedData = await c.req.json(); // Expect { iv: string, payload: string }
+
+    if (!encryptedData.iv || !encryptedData.payload) {
+      return c.json({ status: "invalid_format" }, 400, {});
+    }
+
+    var dev = cfg.workers.filter((dev) => dev.id == id);
+    if (dev.length == 0) {
+      return c.json({ status: "no_device" }, 200, {});
+    }
+
     const decoded_q = hashenc.decode_query(
       dev[0].pk,
-      cfg.server.iv,
-      data
+      encryptedData.iv, // Use the IV sent with the request
+      encryptedData.payload
     );
 
     db.insert_one(id, JSON.parse(decoded_q));
