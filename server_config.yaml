@@ -9,6 +9,12 @@ server:
   port: 3000
   db: "dmon_state.sqlite"
 
+auth:
+  - username: "admin"
+    password: "admin"
+  - username: "root"
+    password: "toor"
+
 workers:
   - id: server1
     pk: test_pk_5678

@@ -1,7 +1,9 @@
-import { randomUUIDv7 } from "bun";
 const crypto = require("crypto");
-import config from "./config.js"
 var CryptoJS = require("crypto-js");
+
+export const generate_jwt_key = () => {
+  return Buffer.from(crypto.randomUUID()).toString('base64');
+};
 
 export function encode_query(keyString, ivString, plaintextString) {
   try {
