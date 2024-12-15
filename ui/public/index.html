@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>dmon Dashboard</title>
+
+        <link rel="stylesheet" href="dist/style.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.1.96/css/materialdesignicons.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script defer src="dist/bundle.js"></script>
+    </head>
+
+    <body class="min-h-screen bg-[#0B1120] text-gray-100 overflow-x-hidden"
+          x-data="{
+            isAuthenticated: false,
+            username: '',
+            password: '',
+            selectedWorker: null,
+            selectedTrait: 'sysinfo.cpu.usage_percent',
+            workers: ['server1', 'server2'],
+            availableTraits: [],
+            trendData: [],
+            timestamps: [],
+            errorMessage: '',
+
+            async fetchTraits() {
+                if (!this.selectedWorker) return;
+
+                const credentials = sessionStorage.getItem('credentials');
+                try {
+                    const response = await fetch(`/api/ui/traits/${this.selectedWorker}`, {
+                        headers: {
+                            'Authorization': `Basic ${credentials}`
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        this.availableTraits = data.payload;
+                        if (!this.selectedTrait && this.availableTraits.length > 0) {
+                            this.selectedTrait = this.availableTraits[0];
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching traits:', error);
+                }
+            },
+
+            async login() {
+                const credentials = btoa(`${this.username}:${this.password}`);
+                try {
+                    const response = await fetch('/api/ui/auth', {
+                        method: 'POST', // Change to POST
+                        headers: {
+                            'Authorization': `Basic ${credentials}`
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'success') {
+                        const devices = await fetch('/api/ui/list_ids', {
+                            headers: {
+                                'Authorization': `Basic ${credentials}`
+                            }
+                        });
+
+                        this.errorMessage = '';
+
+                        if (!devices.ok) {
+                            this.errorMessage = 'Failed to fetch worker list';
+                        } else {
+                            this.workers = (await devices.json()).payload;
+                        }
+
+                        this.isAuthenticated = true;
+                        sessionStorage.setItem('credentials', credentials);
+                    } else {
+                        this.errorMessage = 'Invalid credentials';
+                    }
+                } catch (error) {
+                    this.errorMessage = 'Login failed';
+                    console.error('Login error:', error);
+                }
+            },
+
+            async logout() {
+                this.isAuthenticated = false;
+                sessionStorage.removeItem('credentials');
+                window.location.reload();
+            },
+
+            async fetchTrendData() {
+                if (!this.selectedWorker || !this.selectedTrait) return;
+
+                const credentials = sessionStorage.getItem('credentials');
+                try {
+                    console.log(this.selectedTrait);
+                    const response = await fetch(`/api/ui/trait_last_n/${this.selectedWorker}/20/${this.selectedTrait}`, {
+                        headers: {
+                            'Authorization': `Basic ${credentials}`
+                        }
+                    });
+                    const data = await response.json();
+                    if (data.status === 'success') {
+                        console.log(data.payload);
+                        this.trendData = data.payload;
+                        this.updateChart();
+                    }
+                } catch (error) {
+                    console.error('Error fetching data:', error);
+                }
+            },
+
+            updateChart() {
+                const ctx = document.getElementById('cpuChart');
+                if (!ctx) return;
+
+                // Destroy existing chart if it exists
+                const existingChart = Chart.getChart(ctx);
+                if (existingChart) {
+                    existingChart.destroy();
+                }
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({length: this.trendData.length}, (_, i) => i),
+                        datasets: [{
+                            label: this.selectedTrait,
+                            data: this.trendData,
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.7)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.7)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: 'rgba(255, 255, 255, 0.7)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+          }"
+          x-init="
+            const savedCredentials = sessionStorage.getItem('credentials');
+            if (savedCredentials) {
+                isAuthenticated = true;
+            }
+            $watch('selectedWorker', value => {
+                if(value) {
+                    fetchTraits();
+                    fetchTrendData();
+                }
+            });
+            $watch('selectedTrait', value => {
+                if(value) fetchTrendData();
+            });
+            if(isAuthenticated) {
+                setInterval(() => {
+                    if(selectedWorker && selectedTrait) fetchTrendData()
+                }, 5000)
+            }
+          "
+    >
+        <!-- Login Screen -->
+        <div x-show="!isAuthenticated" class="min-h-screen flex items-center justify-center">
+            <div class="bg-[#1a2234] p-8 rounded-lg shadow-lg w-full max-w-md">
+                <h2 class="text-2xl font-bold mb-6 text-center">dmon Login</h2>
+                <form @submit.prevent="login" class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Username</label>
+                        <input type="text"
+                               x-model="username"
+                               class="bg-[#0B1120] border border-gray-600 text-gray-100 rounded-lg p-2.5 w-full"
+                               required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Password</label>
+                        <input type="password"
+                               x-model="password"
+                               class="bg-[#0B1120] border border-gray-600 text-gray-100 rounded-lg p-2.5 w-full"
+                               required>
+                    </div>
+                    <div x-show="errorMessage"
+                         class="text-red-500 text-sm text-center"
+                         x-text="errorMessage">
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        Login
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div x-show="isAuthenticated">
+            <!-- Navigation -->
+            <nav class="bg-[#1a2234] p-4">
+                <div class="container mx-auto flex justify-between items-center">
+                    <h1 class="text-2xl font-bold">dmon Dashboard</h1>
+                    <button @click="logout"
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                        Logout
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="container mx-auto p-6">
+                <!-- Worker Selection -->
+                <div class="mb-6 flex gap-4">
+                    <div class="w-full max-w-xs">
+                        <label class="block text-sm font-medium mb-2">Select Worker</label>
+                        <select x-model="selectedWorker"
+                                class="bg-[#1a2234] border border-gray-600 text-gray-100 rounded-lg p-2.5 w-full">
+                            <option value="">Choose a worker</option>
+                            <template x-for="worker in workers" :key="worker">
+                                <option :value="worker" x-text="worker"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="w-full max-w-xs">
+                        <label class="block text-sm font-medium mb-2">Select Trait</label>
+                        <select x-model="selectedTrait"
+                                class="bg-[#1a2234] border border-gray-600 text-gray-100 rounded-lg p-2.5 w-full">
+                            <option value="">Choose a trait</option>
+                            <template x-for="trait in availableTraits" :key="trait">
+                                <option :value="trait" x-text="trait"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Dashboard Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- CPU Usage Chart -->
+                    <div class="bg-[#1a2234] p-4 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-semibold mb-4" x-text="selectedTrait"></h2>
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+
+                    <!-- System Info -->
+                    <div class="bg-[#1a2234] p-4 rounded-lg shadow-lg">
+                        <h2 class="text-xl font-semibold mb-4">System Information</h2>
+                        <div x-show="!selectedWorker" class="text-gray-400">
+                            Select a worker to view system information
+                        </div>
+                        <div x-show="selectedWorker" class="space-y-4">
+                            <div class="flex justify-between">
+                                <span>Worker ID:</span>
+                                <span x-text="selectedWorker"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Status:</span>
+                                <span class="text-green-400">Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Refresh Button -->
+                <div class="mt-6">
+                    <button @click="fetchTrendData()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </body>
+</html>
